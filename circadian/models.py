@@ -418,7 +418,9 @@ def equilibrate(self,
     _time_input_checking(time)
     _model_input_checking(input, self._num_inputs, time)
     _positive_int_checking(num_loops, "num_loops")
-    
+    if (time[-1] - time[0]) % 24 != 0:
+        warnings.warn("The input doesn't have a 24 hour period. Entrainment is very unlikely under these circumstances. Equilibration may fail!")
+
     initial_condition = self._default_initial_condition
     dlmos = []
     for _ in range(num_loops):
