@@ -76,7 +76,12 @@ class LightSchedule:
                 # fall back to vectorized for functions that don't handle arrays
                 self._array_func = np.vectorize(light_fn, otypes=[float])
         # keep _func for backward compatibility (scalar evaluation in tests)
-        self._func = np.vectorize(light_fn, otypes=[float])
+        # wrap with scalar extraction so np.vectorize works even when light_fn returns arrays
+        _lf = light_fn
+        self._func = np.vectorize(
+            lambda t: float(np.asarray(_lf(np.array([float(t)]))).flat[0]),
+            otypes=[float]
+        )
 
     def __call__(self,
                  time: np.ndarray, # time in hours 
