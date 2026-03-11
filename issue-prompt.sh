@@ -4,7 +4,16 @@
 # Usage:
 #   ./issue-prompt.sh <issue-number>
 #
-# Prints the prompt to stdout. Copy and paste it into Claude Code chat.
+# Prints the prompt to stdout. Pipe to clipboard with:
+#   ./issue-prompt.sh <issue-number> | pbcopy
+# Then paste into Claude Code chat in VSCode.
+#
+# Requirements:
+#   - GitHub CLI (gh): brew install gh  &&  gh auth login
+#   - Python 3: brew install python
+#   - nbdev 2.4.14: pip install "nbdev==2.4.14"
+#   - Active Python venv with circadian installed in editable mode: pip install -e .
+#   - numpy (latest): pip install -U numpy  (must match CI to catch numpy 2.x bugs locally)
 
 ISSUE_NUM=${1:?Usage: ./issue-prompt.sh <issue-number>}
 
