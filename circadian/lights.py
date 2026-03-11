@@ -52,7 +52,8 @@ class LightSchedule:
             else: 
                 try:
                     test_output = light(0.0)
-                    float(test_output)
+                    # use flat[0] to handle callables (like LightSchedule) that return arrays
+                    float(np.asarray(test_output).flat[0])
                 except:
                     # catches when the function created from light does not return values that can be cast to float
                     raise ValueError(light_input_err_msg)
