@@ -41,8 +41,10 @@ class LightSchedule:
                 # catches when the provided light value is negative
                 raise ValueError(light_input_err_msg)
             else:
-                # create a light function that is a constant set to the provided light value
-                light_fn = lambda t: light
+                # create an array-native constant function
+                _const = light
+                light_fn = lambda t: _const
+                self._array_func = lambda t: np.full_like(t, _const, dtype=float)
         else:
             if len(inspect.signature(light).parameters) != 1:
                 # catches when the provided light function does not take in a single parameter
@@ -54,12 +56,25 @@ class LightSchedule:
                 except:
                     # catches when the function created from light does not return values that can be cast to float
                     raise ValueError(light_input_err_msg)
-            # create a light function that is the provided light function
+            # create a light function, wrapping with period if needed
             if period != None:
-                light_fn = lambda t: light(np.mod(t, period))
+                _base = light
+                _p = float(period)
+                light_fn = lambda t: _base(np.mod(t, _p))
             else:
                 light_fn = light
-        # create a vectorized version of the light function that can take in numpy arrays
+            # detect if light_fn handles numpy arrays natively (avoids np.vectorize overhead)
+            try:
+                _test_arr = np.array([0.0, 1.0])
+                _test_result = np.asarray(light_fn(_test_arr), dtype=float)
+                if _test_result.shape == (2,):
+                    self._array_func = light_fn  # use array-native function directly
+                else:
+                    raise ValueError("not array-native")
+            except:
+                # fall back to vectorized for functions that don't handle arrays
+                self._array_func = np.vectorize(light_fn, otypes=[float])
+        # keep _func for backward compatibility (scalar evaluation in tests)
         self._func = np.vectorize(light_fn, otypes=[float])
 
     def __call__(self,
@@ -80,8 +95,8 @@ class LightSchedule:
                 raise ValueError(time_err_msg)
         except:
             raise ValueError(time_err_msg) 
-        # calculate the light intensity at the provided times
-        light_values = self._func(time)
+        # calculate the light intensity at the provided times using array-native function
+        light_values = np.asarray(self._array_func(time), dtype=float)
         # throw a warning if any of the light values are negative
         if np.any(light_values < 0):
             warnings.warn("Some light values are negative")
@@ -144,6 +159,7 @@ class LightSchedule:
             return np.piecewise(time, conditions, values)
         return cls(fn, period=period)
 
+
 # %% ../nbs/api/01_lights.ipynb 6
 @patch_to(LightSchedule)
 def __add__(self, 
@@ -154,10 +170,14 @@ def __add__(self,
     schedule_err_msg = "`schedule` should be a `LightSchedule` object"
     if not isinstance(schedule, LightSchedule):
         raise TypeError(schedule_err_msg)
-    fn_1 = self._func
-    fn_2 = schedule._func
-    lux = lambda t: fn_1(t) + fn_2(t)
-    return LightSchedule(lux)
+    fn_1 = self._array_func
+    fn_2 = schedule._array_func
+    # combine array-native functions directly to avoid nested np.vectorize overhead
+    result = LightSchedule.__new__(LightSchedule)
+    result._array_func = lambda t: fn_1(t) + fn_2(t)
+    result._func = np.vectorize(result._array_func, otypes=[float])
+    return result
+
 
 # %% ../nbs/api/01_lights.ipynb 7
 @patch_to(LightSchedule)
@@ -169,10 +189,14 @@ def __sub__(self,
     schedule_err_msg = "`schedule` should be a `LightSchedule` object"
     if not isinstance(schedule, LightSchedule):
         raise TypeError(schedule_err_msg)
-    fn_1 = self._func
-    fn_2 = schedule._func
-    lux = lambda t: fn_1(t) - fn_2(t)
-    return LightSchedule(lux)
+    fn_1 = self._array_func
+    fn_2 = schedule._array_func
+    # combine array-native functions directly to avoid nested np.vectorize overhead
+    result = LightSchedule.__new__(LightSchedule)
+    result._array_func = lambda t: fn_1(t) - fn_2(t)
+    result._func = np.vectorize(result._array_func, otypes=[float])
+    return result
+
 
 # %% ../nbs/api/01_lights.ipynb 8
 @patch_to(LightSchedule)
@@ -196,21 +220,26 @@ def concatenate_at(self,
     shift_schedule_err_msg = "`shift_schedule` should be a `bool`"
     if not isinstance(shift_schedule, bool):
         raise TypeError(shift_schedule_err_msg)
-    # create the new schedule
-    fn_1 = self._func
-    fn_2 = schedule._func
+    # use array-native functions for efficient evaluation
+    fn_1 = self._array_func
+    fn_2 = schedule._array_func
     def fn(t):
         func_1_zone = t < timepoint
-        func_2_zone = t >= timepoint
-        conditions = [func_1_zone, func_2_zone]
-        if shift_schedule:
-            # shift the schedule by the timepoint value
-            values = [fn_1(t), fn_2(t-timepoint)]
-        else:
-            # don't shift the schedule
-            values = [fn_1(t), fn_2(t)]
-        return np.piecewise(t, conditions, values)
-    return LightSchedule(fn)
+        func_2_zone = ~func_1_zone
+        result = np.empty_like(t, dtype=float)
+        if np.any(func_1_zone):
+            result[func_1_zone] = fn_1(t[func_1_zone])
+        if np.any(func_2_zone):
+            if shift_schedule:
+                result[func_2_zone] = fn_2((t - timepoint)[func_2_zone])
+            else:
+                result[func_2_zone] = fn_2(t[func_2_zone])
+        return result
+    new_schedule = LightSchedule.__new__(LightSchedule)
+    new_schedule._array_func = fn
+    new_schedule._func = np.vectorize(fn, otypes=[float])
+    return new_schedule
+
 
 # %% ../nbs/api/01_lights.ipynb 9
 @patch_to(LightSchedule)
