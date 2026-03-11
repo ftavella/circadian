@@ -45,7 +45,12 @@ ${ISSUE_BODY}
 
 ## Before committing
 
-6. Run \`nbdev_prepare\` from the repo root — it must exit successfully with no errors. This runs all notebook cells including tests, so a clean exit means all tests pass. **Do not proceed to commit if \`nbdev_prepare\` reports any errors or test failures — fix them first.**
+6. Run the full prepare + clean sequence from the repo root:
+   \`\`\`
+   nbdev_prepare  # exports, tests, and cleans notebooks
+   nbdev_clean    # strips cell outputs and metadata (required by CI)
+   \`\`\`
+   Both must complete with no errors. **Do not proceed to commit if either reports errors or test failures — fix them first.**
 
 ## Commit and PR
 
