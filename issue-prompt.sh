@@ -47,10 +47,12 @@ ${ISSUE_BODY}
 
 6. Run the full prepare + clean sequence from the repo root:
    \`\`\`
-   nbdev_prepare  # exports, tests, and cleans notebooks
-   nbdev_clean    # strips cell outputs and metadata (required by CI)
+   nbdev_export          # export notebooks to .py files
+   pip install -e .      # reinstall package so tests use the new code
+   nbdev_test            # run all tests against the freshly installed code
+   nbdev_clean           # strip cell outputs and metadata (required by CI)
    \`\`\`
-   Both must complete with no errors. **Do not proceed to commit if either reports errors or test failures — fix them first.**
+   All steps must complete with no errors. **The reinstall step is critical — without it, tests may silently run against old code and pass locally but fail in CI.**
 
 ## Commit and PR
 
