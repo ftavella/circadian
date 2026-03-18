@@ -40,6 +40,10 @@ Use `#| export` to export a cell to the generated Python module. Use `#| hide` t
 | `utils.py` / `phasetools.py` | Phase calculations, time conversions, coherence measures |
 | `cli.py` | CLI entry points (actogram, ESRI apps); uses `torch` for JIT |
 
+### Skills
+Prefer `.claude/skills/<name>/SKILL.md` over `.claude/commands/` for project slash commands. Available skills:
+- `/fix-issue <number>` — fetch a GitHub issue and follow the full nbdev fix workflow
+
 ### CI/CD
 - **test.yaml**: runs `nbdev_ci` on PRs and pushes
 - **deploy.yaml**: builds Quarto docs and deploys to GitHub Pages on push to main
